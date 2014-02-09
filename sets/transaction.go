@@ -1,6 +1,6 @@
-package nodes
+package sets
 
 type Transaction struct {
     Id string
-    Items []*Item
+    Set
 }
