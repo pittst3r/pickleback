@@ -29,15 +29,13 @@ import (
 
 
 func Spawn(existing []*elements.Element, new *elements.Element) *Set {
-    set := Set{}
     sliceLen := len(existing) + 1
     elems := make([]*elements.Element, sliceLen, sliceLen)
     for i, e := range existing {
         elems[i] = e
     }
     elems[len(elems) - 1] = new
-    set.Elements = elems
-    return &set
+    return &Set{Elements: elems}
 }
 
 func (set *Set) PsetSize() int {
@@ -54,5 +52,6 @@ func (set *Set) Powerset(limit int) []*Set {
             }
         }
     }
+    // We don't care about the empty set.
     return (*sets)[1:]
 }

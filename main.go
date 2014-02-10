@@ -30,30 +30,37 @@ func main() {
     transactionStore, jsonErr := parseJson(infilePath)
     if jsonErr != nil { return }
 
-    // size represents the current size of the item sets in the computation
-    size := 1
+    // Sort elements in transactions
+    // This is necessary for when we search the transactions for
+    // candidate matches. It's most efficient to do them all at once
+    // right here rather than sorting each transaction over and
+    // over again later.
+    for _, t := range transactionStore.Transactions {
+        sort.Sort(elements.ByElementId(t.Elements))
+    }
+
+    // Now the fun begins...
 
     // largeSets is where we will store our results; large because their support is large as defined by minSupport
     largeSets := make(map[int][]*sets.Set)
 
-    // Now the fun begins...
-
     // Find our first set of 1-item Sets
     allSingleElemSets := sets.AllSingleSets(transactionStore)
+    sort.Sort(sets.ByFirstElementId(allSingleElemSets))
     // Count preliminary support
     for _, s := range allSingleElemSets {
-        if foundSet, ok := s.FindInSets(largeSets[size]); ok {
+        if foundSet, ok := s.FindInSets(largeSets[1]); ok {
             foundSet.Support += 1
         } else {
-            largeSets[size] = append(largeSets[size], s)
+            s.Support = 1
+            largeSets[1] = append(largeSets[1], s)
         }
     }
-
     // Filter out sets without minimum support
-    tmpSet := make([]*sets.Set, len(largeSets[size]))
+    tmpSet := make([]*sets.Set, len(largeSets[1]))
     counter := 0
-    for _, c := range largeSets[size] {
-        if c.Support >= minSupport {
+    for _, c := range largeSets[1] {
+        if c.Support >= (minSupport * 2) {
             tmpSet[counter] = c
             counter++
         }
@@ -62,28 +69,55 @@ func main() {
         if s == nil {
             chompedSet := make([]*sets.Set, i)
             chompedSet = tmpSet[:i]
-            largeSets[size] = chompedSet
+            largeSets[1] = chompedSet
             break
         }
     }
-    
-    // for _, s := range largeSets[size] {
-    //     fmt.Printf("%v is supported by %d\n", s, s.Support)
-    // }
-    fmt.Printf("No. of single item sets: %d\n", len(allSingleElemSets))
-    fmt.Printf("No. of large sets: %d\n", len(largeSets[size]))
 
-    size++
+    for size := 2; len(largeSets[size-1]) > 0; size++ {
 
-    largeSets[size] = generateCandidates(size, largeSets[size-1], transactionStore.AllUniqueElements())
-    
-    
-    // fmt.Printf("No. of large sets: %d\n", len(transactionStore.AllUniqueElements()))
-    // fmt.Printf("%v\n", transactionStore.AllUniqueElements()[0])
-    // fmt.Printf("No. of large sets: %d\n", len(largeSets[size]))
-    // for _, s := range largeSets[size] {
-    //     fmt.Printf("%v is supported by %d\n", s, s.Support)
-    // }
+        candidates := generateCandidates(size, largeSets[size-1], largeSets[1])
+
+        // Tally up support for candidates
+        for _, t := range transactionStore.Transactions {
+            for _, c := range candidates {
+                for _, s := range t.Powerset(size) {
+                    if c.Eql(s) {
+                        c.Support += 1
+                        break
+                    }
+                }
+            }
+        }
+
+        // Filter out unsupported candidates
+        supportedCandidates := make([]*sets.Set, len(candidates))
+        counter := 0
+        for _, c := range candidates {
+            if c.Support >= minSupport {
+                supportedCandidates[counter] = c
+                counter++
+            }
+        }
+        for i, c := range supportedCandidates {
+            if c == nil {
+                supportedCandidates = supportedCandidates[:i]
+                break
+            }
+        }
+
+        sort.Sort(sets.BySupport(supportedCandidates))
+
+        largeSets[size] = supportedCandidates
+
+    }
+
+    for i := 2; len(largeSets[i]) > 0; i++ {
+        fmt.Printf("Size %d count: %d\n", i, len(largeSets[i]))
+        for _, s := range largeSets[i] {
+            fmt.Printf("%v x %d\n", s, s.Support)
+        }
+    }
 
     // Write output csv
 
@@ -98,19 +132,19 @@ func parseJson(filePath string) (store *sets.TransactionStore, err error) {
     return
 }
 
-func generateCandidates(size int, ss []*sets.Set, uniqElems []*elements.Element) []*sets.Set {
+func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set) []*sets.Set {
     joinedSets := new([]*sets.Set)
 
     // Join step
-    for _, p := range ss {
-        for _, q := range uniqElems {
+    for _, p := range largeSets {
+        for _, q := range singleSets {
             elems := p.Elements
             sort.Sort(elements.ByElementId(elems))
-            candidate := sets.Set{Elements: elems}
             // Dupe prevention
-            if elems[len(elems) - 1].Id < q.Id {
-                candidate.Elements = append(candidate.Elements, q)
-                *joinedSets = append(*joinedSets, &candidate)
+            if elems[len(elems) - 1].Id < q.Elements[0].Id {
+                candidate := new(sets.Set)
+                candidate.Elements = append(elems, q.Elements[0])
+                *joinedSets = append(*joinedSets, candidate)
             }
         }
     }
@@ -118,10 +152,9 @@ func generateCandidates(size int, ss []*sets.Set, uniqElems []*elements.Element)
     // Prune step
     prunedSets := new([]*sets.Set)
     for _, s := range *joinedSets {
-        subsets := s.Powerset(size-1)
         good := true
-        for _, sub := range subsets {
-            if _, ok := sub.FindInSets(ss); !ok {
+        for _, sub := range s.Powerset(size-1) {
+            if _, ok := sub.FindInSets(largeSets); !ok {
                 good = false
                 break
             }
