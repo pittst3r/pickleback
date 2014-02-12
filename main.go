@@ -32,13 +32,14 @@ func main() {
     transactionStore, jsonErr := parseJson(infilePath)
     if jsonErr != nil { return }
 
-    // Sort elements in transactions
-    // This is necessary for when we search the transactions for
-    // candidate matches. It's most efficient to do them all at once
-    // right here rather than sorting each transaction over and
-    // over again later.
+    // Get all of our transactions ready
     for _, t := range transactionStore.Transactions {
+
+        // Sort elements in transactions
+        // This is necessary for when we search the transactions for
+        // candidate matches.
         sort.Sort(elements.ByElementId(t.Elements))
+
     }
 
     // Now the fun begins...
@@ -52,6 +53,7 @@ func main() {
     // Count preliminary support
     for _, s := range allSingleElemSets {
         if foundSet, ok := s.FindInSets(largeSets[1]); ok {
+            foundSet.Transactions = append(foundSet.Transactions, s.Transactions...)
             foundSet.Support += 1
         } else {
             s.Support = 1
@@ -62,7 +64,7 @@ func main() {
     tmpSet := make([]*sets.Set, len(largeSets[1]))
     counter := 0
     for _, c := range largeSets[1] {
-        if c.Support >= (minSupport * 2) {
+        if c.Support >= minSupport {
             tmpSet[counter] = c
             counter++
         }
@@ -81,10 +83,13 @@ func main() {
         candidates := generateCandidates(size, largeSets[size-1], largeSets[1])
 
         // Tally up support for candidates
-        for _, t := range transactionStore.Transactions {
-            for _, c := range candidates {
+        for _, c := range candidates {
+            ts := c.Transactions
+            c.Transactions = []*sets.Transaction{}
+            for _, t := range ts {
                 for _, s := range t.Powerset(size) {
                     if c.Eql(s) {
+                        c.Transactions = append(c.Transactions, t)
                         c.Support += 1
                         break
                     }
@@ -160,7 +165,7 @@ func parseJson(filePath string) (store *sets.TransactionStore, err error) {
 }
 
 func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set) []*sets.Set {
-    joinedSets := new([]*sets.Set)
+    joinedSets := []*sets.Set{}
 
     // Join step
     for _, p := range largeSets {
@@ -169,25 +174,33 @@ func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set)
             sort.Sort(elements.ByElementId(elems))
             // Dupe prevention
             if elems[len(elems) - 1].Id < q.Elements[0].Id {
-                *joinedSets = append(*joinedSets, sets.Spawn(elems, q.Elements[0]))
+                newSet := sets.Spawn(elems, q.Elements[0])
+                // We add these transactions to the set so we can search them later for the
+                // larger set we just made a couple lines ago. The set's transactions will
+                // be accurate after that point.
+                newSet.Transactions = []*sets.Transaction{}
+                newSet.Transactions = append(newSet.Transactions, p.Transactions...)
+                joinedSets = append(joinedSets, newSet)
             }
         }
     }
 
     // Prune step
-    prunedSets := new([]*sets.Set)
-    for _, s := range *joinedSets {
+    prunedSets := []*sets.Set{}
+    for _, s := range joinedSets {
         good := true
-        for _, sub := range s.Powerset(size-1) {
-            if _, ok := sub.FindInSets(largeSets); !ok {
-                good = false
-                break
+        for _, sub := range s.Powerset(size - 1) {
+            if sub.Size() == (size - 1) {
+                if _, ok := sub.FindInSets(largeSets); !ok {
+                    good = false
+                    break
+                }
             }
         }
         if good {
-            *prunedSets = append(*prunedSets, s)
+            prunedSets = append(prunedSets, s)
         }
     }
 
-    return *prunedSets
+    return prunedSets
 }

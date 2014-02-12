@@ -8,6 +8,8 @@ import (
 type Set struct {
     Elements []*elements.Element
     Support int
+    Transactions []*Transaction
+    Subsets []*Set
 }
 
 type BySupport []*Set
@@ -33,7 +35,7 @@ func AllSingleSets(transactionStore *TransactionStore) []*Set {
     ss := new([]*Set)
     for _, t := range transactionStore.Transactions {
         for _, e := range t.Elements {
-            newSet := Set{Elements: []*elements.Element{e}}
+            newSet := Set{Elements: []*elements.Element{e}, Transactions: []*Transaction{t}}
             *ss = append(*ss, &newSet)
         }
     }
@@ -43,14 +45,11 @@ func AllSingleSets(transactionStore *TransactionStore) []*Set {
 // Returns true if receiver is found in slice, returns the matched set
 func (set *Set) FindInSets(ss []*Set) (foundSet *Set, ok bool) {
     ok = false
-    for s := range ss {
-        for i := range ss[s].Elements {
-            for p := range set.Elements {
-                if set.Elements[p].Id == ss[s].Elements[i].Id {
-                    ok = true
-                    foundSet = ss[s]
-                }
-            }
+    for _, s := range ss {
+        if set.Eql(s) {
+            foundSet = s
+            ok = true
+            break
         }
     }
     return

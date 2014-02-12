@@ -42,16 +42,48 @@ func (set *Set) PsetSize() int {
     return int(math.Pow(2, float64(len(set.Elements))))
 }
 
-func (set *Set) Powerset(limit int) []*Set {
-    sets := new([]*Set)
-    *sets = append(*sets, new(Set))
-    for _, e := range set.Elements {
-        for _, s := range *sets {
-            if s.Size() < limit {
-                *sets = append(*sets, Spawn(s.Elements, e))
+// Powerset generates the power set of the receiver except for
+// the empty set, because we don't actually care about that.
+//
+// Additionally, Powerset stores the entire power set to the
+// receiver's Subset field. Subsequent calls to Powerset will
+// simply return Subset. Zero the Subset field and call Powerset
+// again to re-generate the Powerset (e.g. if the set
+// elements change).
+//
+// Max constrains the size of the returned sets but does
+// not constrain the size of the generated and stored sets.
+// Leave it blank to get all subsets.
+func (set *Set) Powerset(max int) []*Set {
+
+    if set.Subsets == nil {
+
+        sets := []*Set{new(Set)}
+        for _, e := range set.Elements {
+            for _, s := range sets {
+                sets = append(sets, Spawn(s.Elements, e))
             }
         }
+
+        // We don't care about the empty set
+        sets = sets[1:]
+
+        // Squirrel our power set away
+        set.Subsets = sets
+
     }
-    // We don't care about the empty set.
-    return (*sets)[1:]
+        
+    if max == 0 {
+        return set.Subsets
+    } else {
+        toReturn := []*Set{}
+        for _, s := range set.Subsets {
+            if s.Size() <= max {
+                toReturn = append(toReturn, s)
+            }
+        }
+        return toReturn
+    }
+
+
 }
