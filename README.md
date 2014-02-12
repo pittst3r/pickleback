@@ -5,7 +5,7 @@ An implementation of the Apriori Algorithm, published by Rakesh Agrawal and Rama
 ## Usage
 
 ```shell
-rakesh /path/to/transactions.json <minimum support>
+rakesh <minimum support> /path/to/transactions.json /path/to/outfile.csv
 
 # e.g.
 rakesh sample_transactions.json 3

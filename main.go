@@ -1,6 +1,7 @@
 package main
 
 import (
+    "encoding/csv"
     "encoding/json"
     "fmt"
     "io/ioutil"
@@ -22,9 +23,10 @@ func main() {
         fmt.Println("Usage: rakesh json_input_file csv_output_file")
         return
     }
-    infilePath := os.Args[1]
-    sup, _ := strconv.ParseInt(os.Args[2], 0, 0)
+    sup, _ := strconv.ParseInt(os.Args[1], 0, 0)
     minSupport := int(sup)
+    infilePath := os.Args[2]
+    outfilePath := os.Args[3]
 
     // Parse json input
     transactionStore, jsonErr := parseJson(infilePath)
@@ -107,6 +109,7 @@ func main() {
         }
 
         sort.Sort(sets.BySupport(supportedCandidates))
+        sort.Sort(sort.Reverse(sets.BySupport(supportedCandidates)))
 
         largeSets[size] = supportedCandidates
 
@@ -120,6 +123,30 @@ func main() {
     }
 
     // Write output csv
+    outfile, _ := os.Create(outfilePath)
+    csvWr := csv.NewWriter(outfile)
+    resLineCount := 1
+    for i := 2; len(largeSets[i]) > 0; i++ {
+        resLineCount += len(largeSets[i])
+    }
+    resultSlice := make([][]string, resLineCount)
+    counter = 0
+    resultSlice[counter] = []string{"Support", "Elements"}
+    counter++
+    for i := 2; len(largeSets[i]) > 0; i++ {
+        for _, s := range largeSets[i] {
+            resultSlice[counter] = make([]string, (len(s.Elements) + 1))
+            for c := range resultSlice[counter] {
+                if c == 0 {
+                    resultSlice[counter][c] = fmt.Sprintf("%d", s.Support)
+                } else {
+                    resultSlice[counter][c] = s.Elements[c - 1].Name
+                }
+            }
+            counter++
+        }
+    }
+    csvWr.WriteAll(resultSlice)
 
     // Print processing time
     fmt.Printf("-> Time to run: %v seconds\n", time.Since(clock).Seconds())
@@ -142,9 +169,7 @@ func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set)
             sort.Sort(elements.ByElementId(elems))
             // Dupe prevention
             if elems[len(elems) - 1].Id < q.Elements[0].Id {
-                candidate := new(sets.Set)
-                candidate.Elements = append(elems, q.Elements[0])
-                *joinedSets = append(*joinedSets, candidate)
+                *joinedSets = append(*joinedSets, sets.Spawn(elems, q.Elements[0]))
             }
         }
     }
