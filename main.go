@@ -6,21 +6,19 @@ import (
     "fmt"
     "io/ioutil"
     "os"
-    "rakesh/sets"
-    "rakesh/elements"
+    "pickleback/elements"
+    "pickleback/sets"
+    "sort"
     "strconv"
     "time"
-    "sort"
 )
 
-// Usage:
-// rakesh json_input_file csv_output_file
 func main() {
     clock := time.Now()
 
     // Parse the cli args
     if len(os.Args) < 3 {
-        fmt.Println("Usage: rakesh json_input_file csv_output_file")
+        fmt.Println("Usage: pickleback <min support> infile/path.json outfile/path.csv")
         return
     }
     sup, _ := strconv.ParseInt(os.Args[1], 0, 0)

@@ -1,16 +1,15 @@
 package sets
 
 import (
-    "rakesh/elements"
-    "fmt"
+    "math"
+    "pickleback/elements"
     "testing"
 )
 
 func TestFullPowerset(t *testing.T) {
     set := tSet()
-    pset := set.Powerset(len(set.Elements))
-    expectedSize := set.PsetSize() - 1
-    fmt.Printf("Expected %d sets got %d.\n", expectedSize, len(pset))
+    pset := set.Powerset(1, len(set.Elements))
+    expectedSize := psetSize(set)
     if len(pset) > expectedSize {
         t.Error("Set too large; expected", expectedSize, "got", len(pset))
     } else if len(pset) < expectedSize {
@@ -19,16 +18,18 @@ func TestFullPowerset(t *testing.T) {
 }
 
 func TestConstrainedPowerset(t *testing.T) {
-    var set Set
-    set = tSet()
-    pset := set.Powerset(len(set.Elements) - 1)
-    expectedSize := set.PsetSize() - 2
-    fmt.Printf("Expected %d sets got %d.\n", expectedSize, len(pset))
+    set := tSet()
+    pset := set.Powerset(2, (len(set.Elements) - 1))
+    expectedSize := psetSize(set) - len(set.Elements) - 1
     if len(pset) > expectedSize {
         t.Error("Set too large; expected", expectedSize, "got", len(pset))
     } else if len(pset) < expectedSize {
         t.Error("Set too small; expected", expectedSize, "got", len(pset))
     }
+}
+
+func psetSize(set Set) int {
+    return int(math.Pow(2, float64(len(set.Elements)))) - 1
 }
 
 func tSet() Set {

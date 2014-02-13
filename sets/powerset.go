@@ -1,8 +1,8 @@
 package sets
 
 import (
-    "rakesh/elements"
     "math"
+    "pickleback/elements"
 )
 
 // for each element in the set:
@@ -16,17 +16,6 @@ import (
 // { 1, 2 } { 2 }
 // { 1, 3 } { 1, 2, 3 } { 2, 3 } { 3 }
 // { 1, 4 } { 1, 2, 4 } { 2, 4 } { 1, 3, 4 } { 1, 2, 3, 4 } { 2, 3, 4 } { 3, 4 } { 4 }
-
-// Given the above algorithm:
-// Let s be any set in S
-// Let p(s) be the parent of s
-// Let z(s) be the size of s
-// Let t(s, n) be the subsets of size n of s
-// Let the children of s be defined as
-//   any sets beginning with s
-// Let c(s) be the children of s
-// t(s, z(s)) = c(p(s))
-
 
 func Spawn(existing []*elements.Element, new *elements.Element) *Set {
     sliceLen := len(existing) + 1
