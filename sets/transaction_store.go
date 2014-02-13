@@ -1,6 +1,8 @@
 package sets
 
 import (
+    "encoding/json"
+    "io/ioutil"
     "pickleback/elements"
     "sort"
 )
@@ -26,4 +28,11 @@ func (transactionStore *TransactionStore) AllUniqueElements() []*elements.Elemen
         }
     }
     return uniqElems
+}
+
+func ParseJson(filePath string) (store *TransactionStore, err error) {
+    rawJson, err := ioutil.ReadFile(filePath)
+    store = new(TransactionStore)
+    json.Unmarshal(rawJson, store)
+    return
 }

@@ -2,9 +2,7 @@ package main
 
 import (
     "encoding/csv"
-    "encoding/json"
     "fmt"
-    "io/ioutil"
     "os"
     "pickleback/elements"
     "pickleback/sets"
@@ -27,7 +25,7 @@ func main() {
     outfilePath := os.Args[3]
 
     // Parse json input
-    transactionStore, jsonErr := parseJson(infilePath)
+    transactionStore, jsonErr := sets.ParseJson(infilePath)
     if jsonErr != nil { return }
 
     // Get all of our transactions ready
@@ -126,40 +124,10 @@ func main() {
     }
 
     // Write output csv
-    outfile, _ := os.Create(outfilePath)
-    csvWr := csv.NewWriter(outfile)
-    resLineCount := 1
-    for i := 2; len(largeSets[i]) > 0; i++ {
-        resLineCount += len(largeSets[i])
-    }
-    resultSlice := make([][]string, resLineCount)
-    counter = 0
-    resultSlice[counter] = []string{"Support", "Elements"}
-    counter++
-    for i := 2; len(largeSets[i]) > 0; i++ {
-        for _, s := range largeSets[i] {
-            resultSlice[counter] = make([]string, (len(s.Elements) + 1))
-            for c := range resultSlice[counter] {
-                if c == 0 {
-                    resultSlice[counter][c] = fmt.Sprintf("%d", s.Support)
-                } else {
-                    resultSlice[counter][c] = s.Elements[c - 1].Name
-                }
-            }
-            counter++
-        }
-    }
-    csvWr.WriteAll(resultSlice)
+    writeResults(&largeSets, outfilePath)
 
     // Print processing time
     fmt.Printf("-> Time to run: %v seconds\n", time.Since(clock).Seconds())
-}
-
-func parseJson(filePath string) (store *sets.TransactionStore, err error) {
-    rawJson, err := ioutil.ReadFile(filePath)
-    store = new(sets.TransactionStore)
-    json.Unmarshal(rawJson, store)
-    return
 }
 
 func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set) []*sets.Set {
@@ -200,4 +168,31 @@ func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set)
     }
 
     return prunedSets
+}
+
+func writeResults(largeSets *map[int][]*sets.Set, outfilePath string) (err error) {
+    outfile, _ := os.Create(outfilePath)
+    csvWr := csv.NewWriter(outfile)
+    resLineCount := 1
+    for i := 2; len((*largeSets)[i]) > 0; i++ {
+        resLineCount += len((*largeSets)[i])
+    }
+    resultSlice := make([][]string, resLineCount)
+    counter := 0
+    resultSlice[counter] = []string{"Support", "Elements"}
+    counter++
+    for i := 2; len((*largeSets)[i]) > 0; i++ {
+        for _, s := range (*largeSets)[i] {
+            resultSlice[counter] = make([]string, (len(s.Elements) + 1))
+            for c := range resultSlice[counter] {
+                if c == 0 {
+                    resultSlice[counter][c] = fmt.Sprintf("%d", s.Support)
+                } else {
+                    resultSlice[counter][c] = s.Elements[c - 1].Name
+                }
+            }
+            counter++
+        }
+    }
+    return csvWr.WriteAll(resultSlice)
 }
