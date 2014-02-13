@@ -51,10 +51,9 @@ func (set *Set) PsetSize() int {
 // again to re-generate the Powerset (e.g. if the set
 // elements change).
 //
-// Max constrains the size of the returned sets but does
+// Min and max constrain the size of the returned sets but does
 // not constrain the size of the generated and stored sets.
-// Leave it blank to get all subsets.
-func (set *Set) Powerset(max int) []*Set {
+func (set *Set) Powerset(min, max int) []*Set {
 
     if set.Subsets == nil {
 
@@ -72,18 +71,13 @@ func (set *Set) Powerset(max int) []*Set {
         set.Subsets = sets
 
     }
-        
-    if max == 0 {
-        return set.Subsets
-    } else {
-        toReturn := []*Set{}
-        for _, s := range set.Subsets {
-            if s.Size() <= max {
-                toReturn = append(toReturn, s)
-            }
-        }
-        return toReturn
-    }
 
+    toReturn := []*Set{}
+    for _, s := range set.Subsets {
+        if s.Size() >= min && s.Size() <= max {
+            toReturn = append(toReturn, s)
+        }
+    }
+    return toReturn
 
 }

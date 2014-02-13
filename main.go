@@ -87,7 +87,7 @@ func main() {
             ts := c.Transactions
             c.Transactions = []*sets.Transaction{}
             for _, t := range ts {
-                for _, s := range t.Powerset(size) {
+                for _, s := range t.Powerset(1, size) {
                     if c.Eql(s) {
                         c.Transactions = append(c.Transactions, t)
                         c.Support += 1
@@ -189,12 +189,11 @@ func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set)
     prunedSets := []*sets.Set{}
     for _, s := range joinedSets {
         good := true
-        for _, sub := range s.Powerset(size - 1) {
-            if sub.Size() == (size - 1) {
-                if _, ok := sub.FindInSets(largeSets); !ok {
-                    good = false
-                    break
-                }
+        sz := size - 1
+        for _, sub := range s.Powerset(sz, sz) {
+            if _, ok := sub.FindInSets(largeSets); !ok {
+                good = false
+                break
             }
         }
         if good {
