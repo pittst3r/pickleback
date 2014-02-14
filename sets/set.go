@@ -2,7 +2,7 @@ package sets
 
 import (
     "fmt"
-    "pickleback/elements"
+    "github.com/ledbury/pickleback/elements"
 )
 
 type Set struct {

@@ -3,7 +3,7 @@ package sets
 import (
     "encoding/json"
     "io/ioutil"
-    "pickleback/elements"
+    "github.com/ledbury/pickleback/elements"
     "sort"
 )
 

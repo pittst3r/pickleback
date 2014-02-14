@@ -2,7 +2,7 @@ package sets
 
 import (
     "math"
-    "pickleback/elements"
+    "github.com/ledbury/pickleback/elements"
 )
 
 // for each element in the set:
