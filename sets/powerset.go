@@ -44,7 +44,7 @@ func (set *Set) PsetSize() int {
 // not constrain the size of the generated and stored sets.
 func (set *Set) Powerset(min, max int) []*Set {
 
-    if set.Subsets == nil {
+    // if set.Subsets == nil {
 
         sets := []*Set{new(Set)}
         for _, e := range set.Elements {
@@ -54,15 +54,15 @@ func (set *Set) Powerset(min, max int) []*Set {
         }
 
         // We don't care about the empty set
-        sets = sets[1:]
+        // sets = sets[1:]
 
         // Squirrel our power set away
-        set.Subsets = sets
+        // set.Subsets = sets
 
-    }
+    // }
 
     toReturn := []*Set{}
-    for _, s := range set.Subsets {
+    for _, s := range sets {
         if s.Size() >= min && s.Size() <= max {
             toReturn = append(toReturn, s)
         }
