@@ -6,10 +6,16 @@ import (
     "os"
     "github.com/ledbury/pickleback/elements"
     "github.com/ledbury/pickleback/sets"
+    "github.com/ledbury/pickleback/stores"
     "sort"
     "strconv"
     "time"
+    "path/filepath"
 )
+
+func DBFilename() string {
+    return filepath.Join(os.TempDir(), "pickleback.db")
+}
 
 func main() {
     clock := time.Now()
@@ -24,6 +30,9 @@ func main() {
     infilePath := os.Args[2]
     outfilePath := os.Args[3]
 
+    stores.Initialize(DBFilename())
+    defer os.Remove(DBFilename())
+
     // Parse json input
     transactionStore, jsonErr := sets.ParseJson(infilePath)
     if jsonErr != nil { return }
@@ -36,6 +45,7 @@ func main() {
         // candidate matches.
         sort.Sort(elements.ByElementId(t.Elements))
 
+        stores.StoreTransaction(DBFilename(), t)
     }
 
     // Now the fun begins...
@@ -49,7 +59,7 @@ func main() {
     // Count preliminary support
     for _, s := range allSingleElemSets {
         if foundSet, ok := s.FindInSets(largeSets[1]); ok {
-            foundSet.Transactions = append(foundSet.Transactions, s.Transactions...)
+            foundSet.TransactionIds = append(foundSet.TransactionIds, s.TransactionIds...)
             foundSet.Support += 1
         } else {
             s.Support = 1
@@ -80,12 +90,13 @@ func main() {
 
         // Tally up support for candidates
         for _, c := range candidates {
-            ts := c.Transactions
-            c.Transactions = []*sets.Transaction{}
-            for _, t := range ts {
-                for _, s := range t.Powerset(1, size) {
+            tids := c.TransactionIds
+            c.TransactionIds = []string{}
+            for _, t := range tids {
+                trans, _ := stores.FindTransaction(DBFilename(), t)
+                for _, s := range trans.Powerset(1, size) {
                     if c.Eql(s) {
-                        c.Transactions = append(c.Transactions, t)
+                        c.TransactionIds = append(c.TransactionIds, t)
                         c.Support += 1
                         break
                     }
@@ -144,8 +155,8 @@ func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set)
                 // We add these transactions to the set so we can search them later for the
                 // larger set we just made a couple lines ago. The set's transactions will
                 // be accurate after that point.
-                newSet.Transactions = []*sets.Transaction{}
-                newSet.Transactions = append(newSet.Transactions, p.Transactions...)
+                newSet.TransactionIds = []string{}
+                newSet.TransactionIds = append(newSet.TransactionIds, p.TransactionIds...)
                 joinedSets = append(joinedSets, newSet)
             }
         }
