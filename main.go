@@ -49,7 +49,6 @@ func main() {
     // Count preliminary support
     for _, s := range allSingleElemSets {
         if foundSet, ok := s.FindInSets(largeSets[1]); ok {
-            foundSet.Transactions = append(foundSet.Transactions, s.Transactions...)
             foundSet.Support += 1
         } else {
             s.Support = 1
@@ -79,16 +78,10 @@ func main() {
         candidates := generateCandidates(size, largeSets[size-1], largeSets[1])
 
         // Tally up support for candidates
-        for _, c := range candidates {
-            ts := c.Transactions
-            c.Transactions = []*sets.Transaction{}
-            for _, t := range ts {
-                for _, s := range t.Powerset(1, size) {
-                    if c.Eql(s) {
-                        c.Transactions = append(c.Transactions, t)
-                        c.Support += 1
-                        break
-                    }
+        for _, t := range transactionStore.Transactions {
+            for _, c := range candidates {
+                if _, ok := c.FindInSets(t.Powerset(1, size)); ok {
+                    c.Support += 1
                 }
             }
         }
@@ -141,11 +134,6 @@ func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set)
             // Dupe prevention
             if elems[len(elems) - 1].Id < q.Elements[0].Id {
                 newSet := sets.Spawn(elems, q.Elements[0])
-                // We add these transactions to the set so we can search them later for the
-                // larger set we just made a couple lines ago. The set's transactions will
-                // be accurate after that point.
-                newSet.Transactions = []*sets.Transaction{}
-                newSet.Transactions = append(newSet.Transactions, p.Transactions...)
                 joinedSets = append(joinedSets, newSet)
             }
         }

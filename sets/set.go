@@ -8,8 +8,6 @@ import (
 type Set struct {
     Elements []*elements.Element
     Support int
-    Transactions []*Transaction
-    Subsets []*Set
 }
 
 type BySupport []*Set
@@ -35,7 +33,7 @@ func AllSingleSets(transactionStore *TransactionStore) []*Set {
     ss := new([]*Set)
     for _, t := range transactionStore.Transactions {
         for _, e := range t.Elements {
-            newSet := Set{Elements: []*elements.Element{e}, Transactions: []*Transaction{t}}
+            newSet := Set{Elements: []*elements.Element{e}}
             *ss = append(*ss, &newSet)
         }
     }
