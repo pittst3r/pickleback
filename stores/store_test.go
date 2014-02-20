@@ -131,6 +131,6 @@ func storeTestTransaction(filename string) (string, []*elements.Element, error) 
     number := "R1234"
     elems := []*elements.Element{&elements.Element{Id: int64(123), Name: "Abc"}, &elements.Element{Id: int64(456), Name: "Def"}}
     trans := sets.Transaction{Id: number, Set: sets.Set{Elements: elems}}
-    _, err := StoreTransaction(filename, &trans)
+    err := StoreTransaction(filename, &trans)
     return number, elems, err
 }
