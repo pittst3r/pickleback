@@ -8,6 +8,7 @@ import (
 type Set struct {
     Elements []*elements.Element
     Support int
+    TransactionIds []string
 }
 
 type BySupport []*Set
@@ -33,11 +34,15 @@ func AllSingleSets(transactionStore *TransactionStore) []*Set {
     ss := new([]*Set)
     for _, t := range transactionStore.Transactions {
         for _, e := range t.Elements {
-            newSet := Set{Elements: []*elements.Element{e}}
+            newSet := Set{Elements: []*elements.Element{e}, TransactionIds: []string{t.Id}}
             *ss = append(*ss, &newSet)
         }
     }
     return *ss
+}
+
+func(set *Set) AddTIDs(tid ...string) {
+    set.TransactionIds = append(set.TransactionIds, tid...)
 }
 
 // Returns true if receiver is found in slice, returns the matched set
