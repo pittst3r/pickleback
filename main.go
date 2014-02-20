@@ -3,14 +3,14 @@ package main
 import (
     "encoding/csv"
     "fmt"
-    "os"
     "github.com/ledbury/pickleback/elements"
     "github.com/ledbury/pickleback/sets"
     "github.com/ledbury/pickleback/stores"
+    "os"
+    "path/filepath"
     "sort"
     "strconv"
     "time"
-    "path/filepath"
 )
 
 func DBFilename() string {
@@ -20,7 +20,7 @@ func DBFilename() string {
 func main() {
     clock := time.Now()
 
-    // Parse the cli args
+    // Parse the CLI args
     if len(os.Args) < 3 {
         fmt.Println("Usage: pickleback <min support> infile/path.json outfile/path.csv")
         return
@@ -30,6 +30,9 @@ func main() {
     infilePath := os.Args[2]
     outfilePath := os.Args[3]
 
+    // Get the Sqlite DB ready
+    // This will be used to store temporary data. Storing the data in memory
+    // would require a tremendous amount of memory.
     stores.Initialize(DBFilename())
     defer os.Remove(DBFilename())
 
@@ -46,6 +49,7 @@ func main() {
         sort.Sort(elements.ByElementId(t.Elements))
 
         stores.StoreTransaction(DBFilename(), t)
+
     }
 
     // Now the fun begins...
@@ -55,11 +59,10 @@ func main() {
 
     // Find our first set of 1-item Sets
     allSingleElemSets := sets.AllSingleSets(transactionStore)
-    sort.Sort(sets.ByFirstElementId(allSingleElemSets))
     // Count preliminary support
     for _, s := range allSingleElemSets {
         if foundSet, ok := s.FindInSets(largeSets[1]); ok {
-            foundSet.TransactionIds = append(foundSet.TransactionIds, s.TransactionIds...)
+            foundSet.AddTIDs(s.TransactionIds...)
             foundSet.Support += 1
         } else {
             s.Support = 1
@@ -67,22 +70,13 @@ func main() {
         }
     }
     // Filter out sets without minimum support
-    tmpSet := make([]*sets.Set, len(largeSets[1]))
-    counter := 0
+    tmpSet := []*sets.Set{}
     for _, c := range largeSets[1] {
         if c.Support >= minSupport {
-            tmpSet[counter] = c
-            counter++
+            tmpSet = append(tmpSet, c)
         }
     }
-    for i, s := range tmpSet {
-        if s == nil {
-            chompedSet := make([]*sets.Set, i)
-            chompedSet = tmpSet[:i]
-            largeSets[1] = chompedSet
-            break
-        }
-    }
+    largeSets[1] = tmpSet
 
     for size := 2; len(largeSets[size-1]) > 0; size++ {
 
@@ -94,29 +88,18 @@ func main() {
             c.TransactionIds = []string{}
             for _, t := range tids {
                 trans, _ := stores.FindTransaction(DBFilename(), t)
-                for _, s := range trans.Powerset(1, size) {
-                    if c.Eql(s) {
-                        c.TransactionIds = append(c.TransactionIds, t)
-                        c.Support += 1
-                        break
-                    }
+                if _, ok := c.FindInSets(trans.Powerset(size, size)); ok {
+                    c.AddTIDs(t)
+                    c.Support += 1
                 }
             }
         }
 
         // Filter out unsupported candidates
-        supportedCandidates := make([]*sets.Set, len(candidates))
-        counter := 0
+        supportedCandidates := []*sets.Set{}
         for _, c := range candidates {
             if c.Support >= minSupport {
-                supportedCandidates[counter] = c
-                counter++
-            }
-        }
-        for i, c := range supportedCandidates {
-            if c == nil {
-                supportedCandidates = supportedCandidates[:i]
-                break
+                supportedCandidates = append(supportedCandidates, c)
             }
         }
 
@@ -139,24 +122,25 @@ func main() {
 
     // Print processing time
     fmt.Printf("-> Time to run: %v seconds\n", time.Since(clock).Seconds())
+
 }
 
 func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set) []*sets.Set {
+
     joinedSets := []*sets.Set{}
 
     // Join step
     for _, p := range largeSets {
         for _, q := range singleSets {
             elems := p.Elements
-            sort.Sort(elements.ByElementId(elems))
+            // sort.Sort(elements.ByElementId(elems))
             // Dupe prevention
             if elems[len(elems) - 1].Id < q.Elements[0].Id {
                 newSet := sets.Spawn(elems, q.Elements[0])
                 // We add these transactions to the set so we can search them later for the
-                // larger set we just made a couple lines ago. The set's transactions will
+                // larger set we just made in the previous line. The set's transactions will
                 // be accurate after that point.
-                newSet.TransactionIds = []string{}
-                newSet.TransactionIds = append(newSet.TransactionIds, p.TransactionIds...)
+                newSet.AddTIDs(p.TransactionIds...)
                 joinedSets = append(joinedSets, newSet)
             }
         }
@@ -179,6 +163,7 @@ func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set)
     }
 
     return prunedSets
+
 }
 
 func writeResults(largeSets *map[int][]*sets.Set, outfilePath string) (err error) {

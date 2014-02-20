@@ -42,14 +42,9 @@ func AllSingleSets(transactionStore *TransactionStore) []*Set {
     return *ss
 }
 
-// func (set *Set) Transactions() []*Transaction {
-//     transactions := []*Transaction{}
-
-//     for _, tid := range set.TransactionIds {
-//         transactions = append(transactions, store.FindTransaction(DBFilename(), tid))
-//     }
-    
-// }
+func(set *Set) AddTIDs(tid ...string) {
+    set.TransactionIds = append(set.TransactionIds, tid...)
+}
 
 // Returns true if receiver is found in slice, returns the matched set
 func (set *Set) FindInSets(ss []*Set) (foundSet *Set, ok bool) {
