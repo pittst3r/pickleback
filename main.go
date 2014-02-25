@@ -1,186 +1,92 @@
 package main
 
 import (
-    "encoding/csv"
+    "errors"
     "fmt"
     "os"
-    "github.com/ledbury/pickleback/elements"
-    "github.com/ledbury/pickleback/sets"
-    "sort"
     "strconv"
     "time"
+    "github.com/ledbury/pickleback/algorithms"
+    "github.com/ledbury/pickleback/results"
+    "github.com/ledbury/pickleback/stores"
 )
 
 func main() {
-    clock := time.Now()
+    
+    options, err := parseOptions(os.Args[1:])
+    if err != nil { return }
 
-    // Parse the cli args
-    if len(os.Args) < 3 {
-        fmt.Println("Usage: pickleback <min support> infile/path.json outfile/path.csv")
+    // Parse data store
+    store := new(stores.Store)
+    infilePath := options["infilePath"].(string)
+    store.Read(infilePath)
+
+    // Run algorithm
+    var algorithm algorithms.Runner
+    minSupport := options["minSupport"].(int)
+    switch options["algorithm"] {
+    case "apriori":
+        algorithm = algorithms.Apriori{Data: store, MinSupport: minSupport}
+    }
+
+    // Run algorithm
+    clock := time.Now()
+    resultSet := algorithms.RunAlgorithm(algorithm)
+    duration := time.Since(clock).Seconds()
+
+    // Write results
+    outfilePath := options["outfilePath"].(string)
+    results.WriteResults(outfilePath, resultSet)
+
+    fmt.Println("-> Run in", duration, "seconds.")
+
+}
+
+func parseOptions(args []string) (options map[string]interface{}, err error) {
+
+    options = map[string]interface{}{}
+
+    if len(args) < 4 {
+        err = errors.New("Usage: pickleback algorithm minsupport infile/path.json outfile/path.csv")
         return
     }
-    sup, _ := strconv.ParseInt(os.Args[1], 0, 0)
-    minSupport := int(sup)
-    infilePath := os.Args[2]
-    outfilePath := os.Args[3]
 
-    // Parse json input
-    transactionStore, jsonErr := sets.ParseJson(infilePath)
-    if jsonErr != nil { return }
+    options["algorithm"] = args[0]
 
-    // Get all of our transactions ready
-    for _, t := range transactionStore.Transactions {
+    sup, _ := strconv.ParseInt(args[1], 0, 0)
+    options["minSupport"] = int(sup)
 
-        // Sort elements in transactions
-        // This is necessary for when we search the transactions for
-        // candidate matches.
-        sort.Sort(elements.ByElementId(t.Elements))
+    options["infilePath"] = args[2]
 
-    }
+    options["outfilePath"] = args[3]
 
-    // Now the fun begins...
+    return
 
-    // largeSets is where we will store our results; large because their support is large as defined by minSupport
-    largeSets := make(map[int][]*sets.Set)
-
-    // Find our first set of 1-item Sets
-    allSingleElemSets := sets.AllSingleSets(transactionStore)
-    sort.Sort(sets.ByFirstElementId(allSingleElemSets))
-    // Count preliminary support
-    for _, s := range allSingleElemSets {
-        if foundSet, ok := s.FindInSets(largeSets[1]); ok {
-            foundSet.Support += 1
-        } else {
-            s.Support = 1
-            largeSets[1] = append(largeSets[1], s)
-        }
-    }
-    // Filter out sets without minimum support
-    tmpSet := make([]*sets.Set, len(largeSets[1]))
-    counter := 0
-    for _, c := range largeSets[1] {
-        if c.Support >= minSupport {
-            tmpSet[counter] = c
-            counter++
-        }
-    }
-    for i, s := range tmpSet {
-        if s == nil {
-            chompedSet := make([]*sets.Set, i)
-            chompedSet = tmpSet[:i]
-            largeSets[1] = chompedSet
-            break
-        }
-    }
-
-    for size := 2; len(largeSets[size-1]) > 0; size++ {
-
-        candidates := generateCandidates(size, largeSets[size-1], largeSets[1])
-
-        // Tally up support for candidates
-        for _, t := range transactionStore.Transactions {
-            for _, c := range candidates {
-                if _, ok := c.FindInSets(t.Powerset(1, size)); ok {
-                    c.Support += 1
-                }
-            }
-        }
-
-        // Filter out unsupported candidates
-        supportedCandidates := make([]*sets.Set, len(candidates))
-        counter := 0
-        for _, c := range candidates {
-            if c.Support >= minSupport {
-                supportedCandidates[counter] = c
-                counter++
-            }
-        }
-        for i, c := range supportedCandidates {
-            if c == nil {
-                supportedCandidates = supportedCandidates[:i]
-                break
-            }
-        }
-
-        sort.Sort(sets.BySupport(supportedCandidates))
-        sort.Sort(sort.Reverse(sets.BySupport(supportedCandidates)))
-
-        largeSets[size] = supportedCandidates
-
-    }
-
-    for i := 2; len(largeSets[i]) > 0; i++ {
-        fmt.Printf("Size %d count: %d\n", i, len(largeSets[i]))
-        for _, s := range largeSets[i] {
-            fmt.Printf("%v x %d\n", s, s.Support)
-        }
-    }
-
-    // Write output csv
-    writeResults(&largeSets, outfilePath)
-
-    // Print processing time
-    fmt.Printf("-> Time to run: %v seconds\n", time.Since(clock).Seconds())
 }
 
-func generateCandidates(size int, largeSets []*sets.Set, singleSets []*sets.Set) []*sets.Set {
-    joinedSets := []*sets.Set{}
-
-    // Join step
-    for _, p := range largeSets {
-        for _, q := range singleSets {
-            elems := p.Elements
-            sort.Sort(elements.ByElementId(elems))
-            // Dupe prevention
-            if elems[len(elems) - 1].Id < q.Elements[0].Id {
-                newSet := sets.Spawn(elems, q.Elements[0])
-                joinedSets = append(joinedSets, newSet)
-            }
-        }
-    }
-
-    // Prune step
-    prunedSets := []*sets.Set{}
-    for _, s := range joinedSets {
-        good := true
-        sz := size - 1
-        for _, sub := range s.Powerset(sz, sz) {
-            if _, ok := sub.FindInSets(largeSets); !ok {
-                good = false
-                break
-            }
-        }
-        if good {
-            prunedSets = append(prunedSets, s)
-        }
-    }
-
-    return prunedSets
-}
-
-func writeResults(largeSets *map[int][]*sets.Set, outfilePath string) (err error) {
-    outfile, _ := os.Create(outfilePath)
-    csvWr := csv.NewWriter(outfile)
-    resLineCount := 1
-    for i := 2; len((*largeSets)[i]) > 0; i++ {
-        resLineCount += len((*largeSets)[i])
-    }
-    resultSlice := make([][]string, resLineCount)
-    counter := 0
-    resultSlice[counter] = []string{"Support", "Elements"}
-    counter++
-    for i := 2; len((*largeSets)[i]) > 0; i++ {
-        for _, s := range (*largeSets)[i] {
-            resultSlice[counter] = make([]string, (len(s.Elements) + 1))
-            for c := range resultSlice[counter] {
-                if c == 0 {
-                    resultSlice[counter][c] = fmt.Sprintf("%d", s.Support)
-                } else {
-                    resultSlice[counter][c] = s.Elements[c - 1].Name
-                }
-            }
-            counter++
-        }
-    }
-    return csvWr.WriteAll(resultSlice)
-}
+// func writeResults(largeSets *map[int][]*sets.Set, outfilePath string) (err error) {
+//     outfile, _ := os.Create(outfilePath)
+//     csvWr := csv.NewWriter(outfile)
+//     resLineCount := 1
+//     for i := 2; len((*largeSets)[i]) > 0; i++ {
+//         resLineCount += len((*largeSets)[i])
+//     }
+//     resultSlice := make([][]string, resLineCount)
+//     counter := 0
+//     resultSlice[counter] = []string{"Support", "Elements"}
+//     counter++
+//     for i := 2; len((*largeSets)[i]) > 0; i++ {
+//         for _, s := range (*largeSets)[i] {
+//             resultSlice[counter] = make([]string, (len(s.Elements) + 1))
+//             for c := range resultSlice[counter] {
+//                 if c == 0 {
+//                     resultSlice[counter][c] = fmt.Sprintf("%d", s.Support)
+//                 } else {
+//                     resultSlice[counter][c] = s.Elements[c - 1].Name
+//                 }
+//             }
+//             counter++
+//         }
+//     }
+//     return csvWr.WriteAll(resultSlice)
+// }
