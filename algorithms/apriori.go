@@ -3,7 +3,7 @@ package algorithms
 import (
     "fmt"
     "sort"
-    "github.com/ledbury/pickleback/elements"
+    // "github.com/ledbury/pickleback/elements"
     "github.com/ledbury/pickleback/results"
     "github.com/ledbury/pickleback/sets"
     "github.com/ledbury/pickleback/stores"
@@ -44,6 +44,7 @@ func (algo Apriori) Run() *results.Result {
             tmpSet = append(tmpSet, c)
         }
     }
+    resultSet.ReplaceSets(1, &tmpSet)
 
     for size := 2; len(resultSet.OfSize(size-1)) > 0; size++ {
 
@@ -91,7 +92,7 @@ func generateCandidates(size int, resultSet []*sets.Set, singleSets []*sets.Set)
     for _, p := range resultSet {
         for _, q := range singleSets {
             elems := p.Elements
-            sort.Sort(elements.ByElementId(elems))
+            // sort.Sort(elements.ByElementId(elems))
             // Dupe prevention
             if elems[len(elems) - 1].Id < q.Elements[0].Id {
                 newSet := sets.Spawn(elems, q.Elements[0])

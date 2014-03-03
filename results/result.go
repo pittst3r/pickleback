@@ -17,6 +17,10 @@ func (r *Result) AddSet(s *sets.Set) {
     (*r)[s.Size()] = append((*r)[s.Size()], s)
 }
 
+func (r *Result) ReplaceSets(size int, ss *[]*sets.Set) {
+    (*r)[size] = *ss
+}
+
 func (r *Result) AddSets(size int, ss []*sets.Set) {
     if (*r)[size] == nil {
         (*r)[size] = []*sets.Set{}
